@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Gravity Game</title>
+        <link href="stylesheets/screen.css" media="all" rel="stylesheet" type="text/css"/>
+
+    </head>
+    <body>
+        <div id="header">
+            <h1><a href="index.html">Gravity Game</a></h1>
+            <p><a href="about.html">about</a></p>
+        </div>
+        <div>
+            <div class="screen" id="splash_panel" onload="push_music_btn()">
+                <button id="play_btn"></button>
+                <audio id="intro_audio" src="media/llab007b_insane_frequencies-oceans.ogg" preload="auto" loop autoplay>
+                    Your browser does not support the <code>audio</code> element.
+                </audio>
+                <a href="#" id="start"> Start </a>
+            </div>
+            <div class="screen" id="game_panel">
+                <canvas id="canvas" width="1200" height="600"></canvas>
+            </div>
+
+            <div class="screen" id="score_panel">
+                
+                <div id="table">
+                    <table>
+                        <h3>high scores</h3>
+                        <tr>
+                            <th>#</th>
+                            <th>score</th>
+                        </tr>
+                        <div id="results"></div>
+                    </table>
+                </div>
+                <a href="#" id="restart"> Restart </a>
+            </div>
+
+            <audio id="gamesound" >
+                Your browser does not support the <code>audio</code> element.
+            </audio>
+            
+        </div>
+
+        <script type='text/javascript'>
+            
+            var CANVAS_WIDTH = 1200;
+            var CANVAS_HEIGHT = 600;
+            var FPS = 30;
+
+            var music = document.getElementById("gamesound");
+            var score = 0;
+            var alive_bar = 200;
+            var death_bar = 0;
+            var running = false;
+            
+            var rand_gen_fruits = 0.2;
+            var rand_gen_bombs = 0.09;
+            var loop = null;
+            var explosions = new Array();
+            
+            /*
+             * Handler for "Start" button. It starts the game, making 
+             * the canvas visible and the splash screen hidden.
+             * 
+             */
+            var push_start_btn = function () {
+                var menu = document.getElementById("splash_panel");
+                var game = document.getElementById("game_panel");
+                menu.style.visibility = "hidden";
+                game.style.visibility = "visible";
+
+                var musicintro = document.getElementById("intro_audio");
+                musicintro.pause();
+                running = true;
+                rungame();
+            };
+
+            /*
+             * Handler for "restart" button. 
+             * 
+             */
+            var push_restart_btn = function () {
+                score = 0;
+                death_bar = 0;
+                rand_gen_fruits = 0.2;
+                rand_gen_bombs = 0.09;
+
+                var from = document.getElementById("score_panel");
+                var to = document.getElementById("game_panel");
+                from.style.visibility = "hidden";
+                to.style.visibility = "visible";
+
+
+                running = true;
+                rungame();
+            };
+            
+            /*
+             * Switch off and on the music on the splash screen 
+             * 
+             */
+            var push_music_btn = function () {
+                var str = document.getElementById("play_btn");
+                var musicintro = document.getElementById("intro_audio");
+
+                if (musicintro.played) {   //musicintro.played doesnt work    
+                    musicintro.pause();
+                    str.style.backgroundImage = "url(images/playbtn.png)";
+                    chmusic = 2;
+                }
+                else
+                {
+                    musicintro.volume = 0.25;
+                    musicintro.play();
+                    str.style.backgroundImage = "url(images/stopbtn.png)";
+                    chmusic = 1;
+                }
+            };
+
+            //Listeners
+            var btn = document.getElementById("start");
+            btn.addEventListener("click", push_start_btn, false);
+            var btn = document.getElementById("restart");
+            btn.addEventListener("click", push_restart_btn, false);
+
+            /*
+             * Create the background Object
+             */
+            var background = {
+                bg_x: 0,
+                bg_y: 0,
+                bg_image: "images/bg.jpg",
+                draw: function () {
+                    var bgimg = new Image();
+                    bgimg.src = this.bg_image;
+                    canvas.drawImage(bgimg, 0, 0, bgimg.width, bgimg.height, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                }
+            };
+
+            /*
+             * Create an object for scores. Includes save, sort, and display
+             * functions.
+             */
+            function Scoretable() {
+                this.scores = new Array();
+                this.higher = 0;
+                this.lower = 0;
+                this.max_num = 5;
+                this.save = function (name, val) {
+                    this.scores = localStorage["highscores"];
+                    this.scores[name] = val;
+                    this.sort();
+                    localStorage["highscores"] = this.scores;
+                    if (val >= this.higher) {
+                        this.higher = val;
+                    }
+
+                };
+
+                this.sort = function () {
+
+                    for (var turn in this.scores) {
+                        for (var i = 1; i < this.scores.length; i++) {
+                            if (this.scores[turn] < this.scores[i]) {
+                                var tmp = this.scores[turn];
+                                this.scores[turn] = this.scores[i];
+                                this.scores[i] = tmp;
+                            }
+                        }
+                    }
+                    //return this.scores;
+                };
+
+                this.display = function () {
+                    var tb = document.getElementById("results");
+                    var row = document.createElement("tr");
+                    this.scores = localStorage["highscores"];
+                    for (var i = 0; i < this.max_num; i++) {
+                        tr = tb.insertRow(1);
+                        td = tr.insertCell(2);                    
+                        td.innerHTML = i+" "+this.scores[i];
+                    }
+                    tb.appendChild(td);
+                };
+            }
+            ;
+
+            /*
+             * Create the player Object
+             */
+            var player = {
+                active: true,
+                power: 100,
+                x: CANVAS_WIDTH / 2,
+                y: CANVAS_HEIGHT - 80,
+                width: 45,
+                height: 45,
+                player_step: 0,
+                vel: 1.3,
+                name: "images/tux-small.png",
+                draw: function () {
+
+                    var tmpimg = new Image();
+                    tmpimg.src = this.name;
+                    canvas.drawImage(tmpimg, 0, 0, this.width, this.height, this.x, this.y, this.width, this.height);
+                }
+            };
+            
+            //----------------------Bombs---->
+            var bombs = new Array();
+
+            function Bomb() {
+
+                this.active = true;
+
+                //this.color = "#A2B";
+                this.name = "images/Bomb-Cool-icon.png";
+                this.x = Math.random() * CANVAS_WIDTH;
+                this.y = 0;
+                this.xVelocity = 0;
+                this.yVelocity = 0.3;
+                this.gravity = 4;
+                this.isCollide = false;
+                this.width = 32;
+                this.height = 32;
+
+                this.inBounds = function () {
+                    return this.x >= 0 && this.x <= CANVAS_WIDTH &&
+                            this.y >= 0 && this.y < CANVAS_HEIGHT;
+                };
+
+
+                this.draw = function () {
+
+                    var tmpimg = new Image(); //wrong
+                    tmpimg.src = this.name;
+                    canvas.drawImage(tmpimg, 0, 0, this.width, this.height, this.x, this.y, this.width, this.height);
+                };
+
+                this.update = function () {
+                    this.x += this.xVelocity;
+                    this.y += this.yVelocity;
+                    this.yVelocity = this.yVelocity * 0.9 + this.gravity;
+
+                    this.active = this.active && this.inBounds();
+                };
+
+                this.explode = function () {
+
+                    music.src = "sounds/wrong.mp3";
+                    this.isCollide = true;
+                    var b = boom(this.x,this.y, explosion_frame);
+                    explosions.push(b);
+                    //canvas.drawImage(explosion, 0, 0 , 200, 200 ,player.x,player.y,330,330);
+                    music.play();
+
+                    this.active = false;
+                    // Extra Credit: Add an explosion graphic
+                };
+
+                // return this;
+            }
+            ;
+
+            //------------------------end Bombs---------------
+            
+            //------------------------fruits------------------->
+            var fruits = new Array();
+            var fruits_icons = ["bananas-icon", "cherry-icon", "watermelon-icon", "x3-content-icon"];
+
+            function Fruit() {
+                //this = this || {};
+
+                this.active = true;
+                this.img = new Image();
+                this.name = "";
+                this.x = Math.random() * CANVAS_WIDTH;
+                this.y = Math.random() * CANVAS_HEIGHT / 2;
+                this.xVelocity = 0;
+                this.yVelocity = 0.3;
+                this.gravity = 1.2;
+                this.width = 32;
+                this.height = 32;
+
+                this.inBounds = function () {
+                    return this.x >= 0 && this.x <= CANVAS_WIDTH &&
+                            this.y >= 0 && this.y < CANVAS_HEIGHT;
+                };
+
+                //bomb_obj.sprite = Sprite("bomb");
+
+                this.draw = function () {
+                    //          var rand_index = Math.floor(Math.random() * 7);
+                    //          this.name = fruits_icons[rand_index];
+
+                    this.img.src = "images/" + this.name + ".png";
+                    canvas.drawImage(this.img, 0, 0, this.width, this.height, this.x, this.y, this.width, this.height);
+                };
+
+                this.update = function () {
+                    this.x += this.xVelocity;
+                    this.y += this.yVelocity;
+                    this.yVelocity = this.yVelocity * 0.9 + this.gravity;
+
+
+                    this.active = this.active && this.inBounds();
+                };
+
+                this.explode = function () {
+                    //Sound.play("explosion");
+                    music.src = "sounds/hifi.mp3";
+                    music.play();
+                    //update score
+                    this.active = false;
+                    // Extra Credit: Add an explosion graphic
+                };
+
+                // return this;
+            }
+            ;
+
+            //-----------------------------end fruits---------------------
+            
+            
+            var canvasElement = document.getElementById("canvas");
+            var canvas = canvasElement.getContext("2d");
+
+            var explosion_frame = 11;
+            var explosion = new Image();
+            explosion.src = "images/blowup.jpg";
+
+            /*
+             * Main loop
+             */
+            var rungame = function () {
+                if (running) {
+                    loop = setInterval(function () { //setTimeout
+                        update();
+                        draw();
+                    }, 1000 / FPS);
+                }
+            };
+
+            // Handle keyboard controls
+            var keysDown = {};
+            addEventListener("keydown", update, false);
+
+            addEventListener("keydown", function (e) {
+                keysDown[e.keyCode] = true;
+            }, false);
+
+            addEventListener("keyup", function (e) {
+                player.player_step=0;
+                delete keysDown[e.keyCode];
+            }, false);
+            
+            /*
+             * The player can move only left or right.
+             * Check that the keycodes have been pushed and that he is into the 
+             * boundaries and increase his speed.
+             * Update each one of the fruits and the bombs in the lists and update
+             * the lists itself to keep only the active ones. 
+             */
+            function update() {
+                //go left == 37       
+                if (37 in keysDown) {
+                    player.player_step+=1; //speed
+                    if (player.x > 0)
+                        player.x -= player.player_step*player.vel;
+                }
+                
+                //go right == 39
+                if (39 in keysDown) {
+                    player.player_step+=1;
+                    if (player.x < CANVAS_WIDTH - player.width)
+                        player.x += player.player_step*player.vel;
+                }
+
+                fruits.forEach(function (fruit) {
+                    fruit.update();
+                });
+
+                fruits = fruits.filter(function (fruit) {
+                    return fruit.active;
+                });
+
+                bombs.forEach(function (bomb) {
+                    if (bomb.active)
+                        bomb.update();
+                });
+
+                bombs = bombs.filter(function (bomb) {
+                    return bomb.active;
+                });
+
+                handleCollisions();
+
+                if (Math.random() < rand_gen_fruits) {
+                    var obj = new Fruit();
+                    var rand_index = Math.floor(Math.random() * 7);
+                    obj.name = fruits_icons[rand_index];
+
+                    fruits.push(obj);
+                }
+
+                if (Math.random() < rand_gen_bombs) {
+                    var obj = new Bomb();
+                    //d.src = "images/player.png"
+                    bombs.push(obj);
+                }
+            }
+
+            /*
+             * The draw function which draw all the updated elements in the game.
+             */
+            function draw() {
+
+                canvas.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                background.draw();
+                canvas.font = "15pt verdana";
+                canvas.fillStyle = "white";
+                canvas.fillText("Score: " + score, CANVAS_WIDTH - 200, 20);
+
+                canvas.fillStyle = "green";
+                canvas.fillRect(10, 10, alive_bar, 40);
+
+                player.draw();
+
+                canvas.fillStyle = "red";
+                canvas.fillRect(10, 10, death_bar, 40);
+
+                for (var fruiti = 0; fruiti < fruits.length; fruiti++) {
+                    fruits[fruiti].draw();
+
+                }
+boom(200, 200, 3);
+                for (var bombi = 0; bombi < bombs.length; bombi++) {
+                    bombs[bombi].draw();
+                   // if (bombs[bombi].isCollide)
+                      //  boom(bombs[bombi].x, bombs[bombi].y, explosion_frame);
+                }
+                
+                if(explosions.length>0){
+                 for (var expli = 0; expli < explosions.length; expli++) {
+                console.log(expli);
+                       console.log(explosions.length);      
+                explosions[expli].run2();  //type error
+                       
+                }
+            }
+            }
+            
+            /*
+             * Switch to the highscores panel after clean the game.
+             */
+            function gameover() {
+                clearInterval(loop); //last change...
+                this.bombs = new Array();
+                this.fruits = new Array();
+                player.active = false;
+                this.running = false;
+                canvas.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                var scorepanel = document.getElementById("score_panel");
+                var game = document.getElementById("game_panel");
+                game.style.visibility = "hidden";
+                scorepanel.style.visibility = "visible";
+                //or draw an image and create a listener
+            };
+            
+            //----------------------------------helper functions-------------->
+            function collides(a, b) {
+                return a.x < b.x + b.width &&
+                        a.x + a.width > b.x &&
+                        a.y < b.y + b.height &&
+                        a.y + a.height > b.y;
+            }
+
+            function handleCollisions() {
+
+                for (var i in fruits) {
+                    if (collides(player, fruits[i])) {
+                        fruits[i].explode();
+                        //player.explode();
+                        score += 10;
+                        console.log("hit");
+                    }
+                }
+
+                for (var i in bombs) {
+                    if (collides(player, bombs[i])) {
+                        bombs[i].explode();
+                        //explode(bombs[i].x,bombs[i].y, explosion_frame);
+                        update_bar();
+                        score -= 5;
+
+                        //remove bomb
+                        console.log("bang");
+                    }
+                }
+            }
+            
+            
+            function boom(x, y, frm) {
+                var expl_x = 0;
+                var expl_y = 0;
+                var expl_w = explosion.width / 3;
+                var expl_h = explosion.height / 4;
+                var run2 = function(){
+                    for (var row = 0; row < frm; row++) {
+                        //for(var col = 0;col<explosion.height;col++){
+                        canvas.drawImage(explosion, expl_x, expl_y, expl_w, expl_h, x, y, expl_w, expl_h);
+                        //}
+                        if (expl_x < explosion.width) {
+                            expl_x += expl_w;
+                        } else {
+                            expl_x = 0;
+                            expl_y++;
+                        }
+                    }
+                };
+
+            };
+
+            player.explode = function () {
+                this.active = false;
+                this.power - 10;
+
+            };
+            
+            function update_bar() {
+                if (death_bar >= alive_bar)
+                    gameover();
+                else
+                    death_bar += 20;
+
+            };
+            //--------------------------end helper functions--------------
+           
+        </script>
+    </body>
+</html>

@@ -1,0 +1,120 @@
+/* line 1 */
+body {
+  font-family: Verdana;
+  font-size: 10pt;
+  margin: 0;
+}
+
+th, td{
+    padding-right: 14em;
+}
+
+#game {
+    position: absolute;
+    width: 80%;
+    height: 80%;
+    font-size: 40px;
+    left: 10em;
+    top: 2em;
+    
+}
+
+.screen {
+    position: absolute;
+    width: 1200px;
+    height: 600px;
+    z-index: 10;
+    
+}
+
+.screen.active {
+    display: block;
+}
+
+.screen#splash_panel {
+    background-repeat: no-repeat;
+    background-image: url(../images/bg.jpg);
+    visibility:visible;
+    left:47em;
+}
+
+.screen#game_panel {   
+    visibility: hidden;
+    left:27em;
+}
+
+.screen#score_panel {
+    background-repeat: no-repeat;
+    background-image: url(../images/bg.jpg);
+    visibility: hidden;
+    left:47em;
+    width: 600px;
+}
+
+#start, #restart {
+    width: 10em;
+    height: 5em;
+    left: 6%;
+    top: 50%;
+    position: absolute;
+    line-height: 100px;
+    background-color: transparent;
+    background-repeat: no-repeat;
+    text-align: center;
+    font-size: 40px;
+    color: #CFC4F2;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    vertical-align: middle;
+    text-shadow: 1px 1px 1px black;
+    z-index: 11;
+}
+
+
+#play_btn{
+    width: 3em;
+    height: 3em;
+    top: 195px;
+    left: 60px;
+    background-image: url(../images/stopbtn.png);
+    background-color: transparent;
+    background-repeat: no-repeat;
+    display: inherit;
+    
+}
+
+canvas {
+    position: absolute;
+}
+
+#table {
+    margin-right: 0px;
+    margin-left: 0px;
+    margin-top: 5em;
+    background-color: rgba(234, 245, 225, 0.53);
+    border-color: #DDD;
+    border-width: 1px;
+    border-radius: 4px 4px 0px 0px;
+    box-shadow: none;
+}
+
+#about{
+    
+}
+
+#header {
+    background-color: rgba(234, 245, 225, 0.99);
+}
+
+#header>h1{ 
+    text-decoration: none;
+    text-decoration-line: none;
+    text-align: center;     
+}
+
+#header>p{
+    margin-right: 5%;
+    font-style: italic;
+    text-align: right;     
+}
